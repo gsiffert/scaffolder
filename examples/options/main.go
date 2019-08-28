@@ -13,6 +13,12 @@ type Form struct {
 	Age       int
 }
 
+func (f *Form) Default() {
+	f.FirstName = "FirstName"
+	f.LastName = "LastName"
+	f.Age = 42
+}
+
 func FirstName(value string) scaffolder.Option {
 	return func(f *Form) error {
 		f.FirstName = value
@@ -52,6 +58,9 @@ func (c *Config) Options() []scaffolder.Option {
 
 func main() {
 	var form Form
+	_ = scaffolder.Options(&form)
+	fmt.Printf("Form: %v\n", form)
+
 	_ = scaffolder.Options(
 		&form,
 		FirstName("Gaston"),

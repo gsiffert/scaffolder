@@ -5,6 +5,10 @@ import (
 	"reflect"
 )
 
+type Defaulter interface {
+	Default()
+}
+
 type Option interface{}
 
 func validate(o Option) error {
@@ -31,6 +35,10 @@ func Options(target interface{}, opts ...Option) error {
 	if targetType.Kind() != reflect.Ptr {
 		return errors.New("")
 	}
+	if defaulter, ok := target.(Defaulter); ok {
+		defaulter.Default()
+	}
+
 	targetValue := reflect.ValueOf(target)
 	args := []reflect.Value{targetValue}
 
