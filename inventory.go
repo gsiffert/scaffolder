@@ -5,8 +5,6 @@ import (
 	"reflect"
 )
 
-type Component interface{}
-
 const (
 	tag = "scaffolder"
 )
