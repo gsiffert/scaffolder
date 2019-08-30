@@ -30,7 +30,7 @@ func validate(o Option) error {
 	return nil
 }
 
-func Options(target interface{}, opts ...Option) error {
+func Init(target interface{}, opts ...Option) error {
 	targetType := reflect.TypeOf(target)
 	if targetType.Kind() != reflect.Ptr {
 		return errors.New("")
@@ -60,5 +60,5 @@ type Configuration interface {
 }
 
 func Configure(target interface{}, cfg Configuration) error {
-	return Options(target, cfg.Options()...)
+	return Init(target, cfg.Options()...)
 }

@@ -7,7 +7,6 @@ import (
 )
 
 type A struct {
-	C *C `scaffolder:"c"`
 }
 
 type B struct {
@@ -15,8 +14,8 @@ type B struct {
 }
 
 type C struct {
-	A *A          `scaffolder:"a"`
-	B interface{} `scaffolder:"b"`
+	A *A `scaffolder:"a"`
+	B *B
 }
 
 func main() {
@@ -25,7 +24,10 @@ func main() {
 	b := B{}
 	c := C{}
 
-	inventory.Add(&a, "a").Add(&b, "b").Add(&c, "c")
+	inventory.
+		Add(&a, scaffolder.WithName("a")).
+		Add(&b).
+		Add(&c)
 	err := inventory.Compile()
 	fmt.Printf("A: %v\nB: %v\nC: %v\nErr: %v\n", a, b, c, err)
 }
