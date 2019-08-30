@@ -1,15 +1,37 @@
 package scaffolder
 
-type Component interface{}
+import (
+	"reflect"
+)
 
-// type component struct {
-// 	obj  Component
-// 	name string
-// }
+type Component interface {
+}
 
-// func WithName(name string) Option {
-// 	return func(c *component) error {
-// 		c.name = name
-// 		return nil
-// 	}
-// }
+type Container interface {
+	Name() string
+	Component() Component
+}
+
+type container struct {
+	value Component
+	name  string
+}
+
+func (c *container) Default() {
+	c.name = reflect.TypeOf(c.value).Elem().Name()
+}
+
+func (c *container) Name() string {
+	return c.name
+}
+
+func (c *container) Component() Component {
+	return c.value
+}
+
+func WithName(name string) Option {
+	return func(c *container) error {
+		c.name = name
+		return nil
+	}
+}

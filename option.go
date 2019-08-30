@@ -5,13 +5,17 @@ import (
 	"reflect"
 )
 
+var (
+	errUnmatchingTargetType = errors.New("unmatching target type")
+)
+
 type Defaulter interface {
 	Default()
 }
 
 type Option interface{}
 
-func validate(o Option) error {
+func validate(o Option, target reflect.Type) error {
 	oType := reflect.TypeOf(o)
 	switch {
 	case oType == nil:
@@ -26,6 +30,8 @@ func validate(o Option) error {
 		return errors.New("b")
 	case !oType.Out(0).Implements(errorInterface):
 		return errors.New("a")
+	case oType.In(0) != target:
+		return errUnmatchingTargetType
 	}
 	return nil
 }
@@ -43,7 +49,11 @@ func Init(target interface{}, opts ...Option) error {
 	args := []reflect.Value{targetValue}
 
 	for _, opt := range opts {
-		if err := validate(opt); err != nil {
+		err := validate(opt, targetType)
+		switch {
+		case err == errUnmatchingTargetType:
+			continue
+		case err != nil:
 			return err
 		}
 

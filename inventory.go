@@ -7,34 +7,20 @@ import (
 
 const (
 	tag = "scaffolder"
+	all = "containers"
 )
 
-type component struct {
-	value Component
-	name  string
-}
-
-func (c *component) Default() {
-	c.name = reflect.TypeOf(c.value).Elem().Name()
-}
-
-func WithName(name string) Option {
-	return func(c *component) error {
-		c.name = name
-		return nil
-	}
-}
-
 type Inventory struct {
-	components map[string]*component
+	containers map[string]*container
 	fields     map[string][]reflect.Value
 
 	addErr error
+	all    []Container
 }
 
 func New() *Inventory {
 	return &Inventory{
-		components: make(map[string]*component),
+		containers: make(map[string]*container),
 		fields:     make(map[string][]reflect.Value),
 	}
 }
@@ -45,7 +31,7 @@ func (i *Inventory) fieldByTag(field reflect.StructField) (string, bool) {
 	switch {
 	case len(tagName) == 0:
 		return "", false
-	case kind != reflect.Ptr && kind != reflect.Interface:
+	case kind != reflect.Ptr && kind != reflect.Interface && kind != reflect.Slice:
 		return "", false
 	}
 	return tagName, true
@@ -57,33 +43,34 @@ func (i *Inventory) fieldByType(field reflect.StructField) (string, bool) {
 	switch {
 	case fieldType.Kind() == reflect.Ptr:
 		name = fieldType.Elem().Name()
-	case fieldType.Kind() != reflect.Interface:
+	case fieldType.Kind() != reflect.Interface && fieldType.Kind() != reflect.Slice:
 		return "", false
 	}
 
 	return name, true
 }
 
-func (i *Inventory) Add(c Component, opts ...Option) *Inventory {
+func (i *Inventory) Add(component Component, opts ...Option) *Inventory {
 	if i.addErr != nil {
 		return i
 	}
 
-	cType := reflect.TypeOf(c)
+	cType := reflect.TypeOf(component)
 	if cType.Kind() != reflect.Ptr {
 		i.addErr = errors.New("")
 		return i
 	}
-	cValue := reflect.ValueOf(c).Elem()
+	cValue := reflect.ValueOf(component).Elem()
 	cType = cType.Elem()
 
-	component := &component{value: c}
-	if err := Init(component, opts...); err != nil {
+	container := &container{value: component}
+	if err := Init(container, opts...); err != nil {
 		i.addErr = err
 		return i
 	}
 
-	i.components[component.name] = component
+	i.all = append(i.all, container)
+	i.containers[container.name] = container
 	// Store the addressable field values for later injection.
 	for y := 0; y < cType.NumField(); y++ {
 		field := cType.Field(y)
@@ -110,12 +97,14 @@ func (i *Inventory) Compile() error {
 	if i.addErr != nil {
 		return i.addErr
 	}
+	i.containers[all] = &container{value: i.all}
+
 	for key, fields := range i.fields {
-		component, ok := i.components[key]
+		container, ok := i.containers[key]
 		if !ok {
 			return errors.New("")
 		}
-		cValue := reflect.ValueOf(component.value)
+		cValue := reflect.ValueOf(container.value)
 		for _, field := range fields {
 			if field.IsNil() {
 				field.Set(cValue)
