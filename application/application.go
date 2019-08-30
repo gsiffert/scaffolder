@@ -45,7 +45,7 @@ func WithComponent(component scaffolder.Component, opts ...scaffolder.Option) sc
 			return err
 		}
 		a.components = append(a.components, component)
-		a.inventory.Add(component)
+		a.inventory.Add(component, opts...)
 		return nil
 	}
 }
@@ -107,10 +107,10 @@ func (a *Application) Run(ctx context.Context) (err error) {
 			if err := s.Start(childCtx); err != nil {
 				return err
 			}
-			wg.Add(1)
 		}
 		// Hook the call to stop the component when shutting down the application.
 		if s, ok := component.(StopHook); ok {
+			wg.Add(1)
 			stopper := a.stopWithTimeout(childCtx, s)
 			defer func() {
 				if stopErr := stopper(); stopErr != nil && err == nil {
