@@ -12,6 +12,7 @@ type DefaultHealthCheck interface {
 type defaultClient struct {
 	ctx    context.Context
 	status Status
+	inner  chan Status
 	ch     chan Status
 }
 
@@ -19,6 +20,7 @@ func DefaultClient(ctx context.Context) DefaultHealthCheck {
 	client := &defaultClient{
 		ctx:    ctx,
 		status: NotReady,
+		inner:  make(chan Status),
 		ch:     make(chan Status),
 	}
 	go client.run(ctx)
@@ -33,7 +35,7 @@ func (d *defaultClient) SetStatus(status Status) {
 	select {
 	case <-d.ctx.Done():
 		return
-	case d.ch <- status:
+	case d.inner <- status:
 	}
 }
 
@@ -43,7 +45,7 @@ func (d *defaultClient) run(ctx context.Context) {
 			select {
 			case <-ctx.Done():
 				return
-			case d.status = <-d.ch:
+			case d.status = <-d.inner:
 			case d.ch <- d.status:
 			}
 		}
