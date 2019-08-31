@@ -15,6 +15,7 @@ type Container interface {
 type container struct {
 	value Component
 	name  string
+	t     reflect.Type
 }
 
 func (c *container) Default() {

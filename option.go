@@ -6,7 +6,9 @@ import (
 )
 
 var (
-	errUnmatchingTargetType = errors.New("unmatching target type")
+	ErrInvalidTarget        = errors.New("the target must be a pointer")
+	ErrInvalidOption        = errors.New("the option does not respect the mandatory prototype")
+	errUnmatchingTargetType = errors.New("unmatching target type and option argument")
 )
 
 type Defaulter interface {
@@ -19,17 +21,17 @@ func validate(o Option, target reflect.Type) error {
 	oType := reflect.TypeOf(o)
 	switch {
 	case oType == nil:
-		return errors.New("f")
+		fallthrough
 	case oType.Kind() != reflect.Func:
-		return errors.New("e")
+		fallthrough
 	case oType.NumIn() != 1:
-		return errors.New("d")
+		fallthrough
 	case oType.NumOut() != 1:
-		return errors.New("c")
+		fallthrough
 	case oType.In(0).Kind() != reflect.Ptr:
-		return errors.New("b")
+		fallthrough
 	case !oType.Out(0).Implements(errorInterface):
-		return errors.New("a")
+		return ErrInvalidOption
 	case oType.In(0) != target:
 		return errUnmatchingTargetType
 	}
@@ -39,7 +41,7 @@ func validate(o Option, target reflect.Type) error {
 func Init(target interface{}, opts ...Option) error {
 	targetType := reflect.TypeOf(target)
 	if targetType.Kind() != reflect.Ptr {
-		return errors.New("")
+		return ErrInvalidOption
 	}
 	if defaulter, ok := target.(Defaulter); ok {
 		defaulter.Default()
