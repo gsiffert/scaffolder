@@ -6,36 +6,27 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"time"
 
-	"github.com/Vorian-Atreides/scaffolder"
+	//"github.com/Vorian-Atreides/scaffolder"
 	"github.com/Vorian-Atreides/scaffolder/application"
 	"github.com/Vorian-Atreides/scaffolder/component/healthcheck"
 )
 
 type A struct {
-	defaultHC healthcheck.DefaultHealthCheck
-}
-
-func (a *A) Default() {
-	a.defaultHC = healthcheck.DefaultClient(context.Background())
-}
-
-func (a *A) Status() <-chan healthcheck.Status {
-	return a.defaultHC.Status()
+	//HealthRegistry healthcheck.HealthRegistry
 }
 
 func (a *A) Start(ctx context.Context) error {
-	fmt.Println("A")
 	go func() {
 		for {
-			rand.Intn(4)
+			i := rand.Intn(4)
 			select {
 			case <-ctx.Done():
 				return
-			default:
-				//case <-time.After(time.Duration(i) * time.Second):
+			case <-time.After(time.Duration(i) * time.Second):
 			}
-			a.defaultHC.SetStatus(healthcheck.Ready)
+			//a.HealthRegistry.SetStatus("a", healthcheck.Ready)
 			// a.defaultHC.SetStatus(healthcheck.Status(i))
 		}
 	}()
@@ -63,9 +54,9 @@ func (b *B) Start(ctx context.Context) error {
 
 func main() {
 	app, err := application.New(
-		application.WithComponent(&healthcheck.HealthChecker{}),
+		application.WithComponent(healthcheck.NewRegistry()),
 		application.WithComponent(&A{}),
-		application.WithComponent(&A{}, scaffolder.WithName("a2")),
+		//application.WithComponent(&A{}, scaffolder.WithName("a2")),
 		application.WithComponent(&healthcheck.HTTPHandler{}),
 		application.WithComponent(&B{}),
 	)
