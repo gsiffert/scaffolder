@@ -33,11 +33,6 @@ func New() *Inventory {
 	return &Inventory{}
 }
 
-func (i *Inventory) fieldByTag(field reflect.StructField) (string, bool) {
-	tagName := field.Tag.Get(tag)
-	return tagName, len(tagName) > 0
-}
-
 func (i *Inventory) isSettableType(kind reflect.Kind) bool {
 	return kind == reflect.Slice || kind == reflect.Ptr || kind == reflect.Interface
 }
@@ -79,6 +74,10 @@ func (i *Inventory) Add(component Component, opts ...Option) *Inventory {
 		i.addErr = ErrInvalidComponent
 		return i
 	}
+	if err := Init(component, opts...); err != nil {
+		i.addErr = err
+		return i
+	}
 
 	container := &container{value: component, t: cType}
 	if err := Init(container, opts...); err != nil {
@@ -118,8 +117,8 @@ func (i *Inventory) Compile() error {
 		return i.addErr
 	}
 
-	// This algorithm is O(N)3, it assume that no inventory will ever have
-	// large number of components.
+	// This algorithm has a time complexity of O(N)3,
+	// it assume that no inventory will ever have hundreds of components.
 Next:
 	for _, field := range i.fields {
 		if !field.value.IsNil() {

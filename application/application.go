@@ -41,9 +41,6 @@ func WithGracefulPeriod(duration time.Duration) scaffolder.Option {
 
 func WithComponent(component scaffolder.Component, opts ...scaffolder.Option) scaffolder.Option {
 	return func(a *Application) error {
-		if err := scaffolder.Init(component, opts...); err != nil {
-			return err
-		}
 		a.components = append(a.components, component)
 		a.inventory.Add(component, opts...)
 		return nil
@@ -84,6 +81,16 @@ func (a *Application) stopWithTimeout(ctx context.Context, s StopHook) func() er
 	}
 }
 
+// Run will start by linking the components with the scaffolder Inventory.
+//
+// Then every components implementing the Validator interface will be validated,
+// the application will abort if at least one error has been returned.
+//
+// Otherwise, the application will start the components implementing the StartHook interface
+// in a separated Goroutine. Returning at least one error from the Starts will stop the Application.
+//
+// Finally before the application terminate, it will notify the components implementing
+// the StopHook interface to allow them to gracefully shutdown.
 func (a *Application) Run(ctx context.Context) (err error) {
 	if err := a.inventory.Compile(); err != nil {
 		return err
@@ -92,8 +99,8 @@ func (a *Application) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	signalC := make(chan os.Signal, 1)
+	signal.Notify(signalC, syscall.SIGINT, syscall.SIGTERM)
 
 	wg := sync.WaitGroup{}
 	defer wg.Wait()
@@ -101,14 +108,30 @@ func (a *Application) Run(ctx context.Context) (err error) {
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	runtimeErr := make(chan error)
 	for _, component := range a.components {
-		// Start the components.
+		// Start the component in its own Goroutine and
+		// block until the scheduler started it.
 		if s, ok := component.(StartHook); ok {
-			if err := s.Start(childCtx); err != nil {
-				return err
+			cond := make(chan struct{})
+			go func(s StartHook) {
+				close(cond)
+				select {
+				case <-ctx.Done():
+				case runtimeErr <- s.Start(childCtx):
+				}
+			}(s)
+			select {
+			case <-ctx.Done():
+				return
+			case <-signalC:
+				return
+			case <-cond:
 			}
 		}
-		// Hook the call to stop the component when shutting down the application.
+
+		// Hook the call to stop the component when shutting down the application,
+		// we stop them sequentially.
 		if s, ok := component.(StopHook); ok {
 			wg.Add(1)
 			stopper := a.stopWithTimeout(childCtx, s)
@@ -121,8 +144,12 @@ func (a *Application) Run(ctx context.Context) (err error) {
 		}
 	}
 
-	<-c
-	return nil
+	select {
+	case <-ctx.Done():
+	case <-signalC:
+	case err = <-runtimeErr:
+	}
+	return err
 }
 
 type Validator interface {
