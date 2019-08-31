@@ -144,12 +144,19 @@ func (a *Application) Run(ctx context.Context) (err error) {
 		}
 	}
 
-	select {
-	case <-ctx.Done():
-	case <-signalC:
-	case err = <-runtimeErr:
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-signalC:
+			return
+		case err = <-runtimeErr:
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return err
+	return nil
 }
 
 type Validator interface {
