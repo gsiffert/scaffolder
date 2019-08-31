@@ -23,11 +23,11 @@ func (s Status) String() string {
 	case NotHealthy:
 		return "Not healthy"
 	case Healthy:
-		return "healthy"
+		return "Healthy"
 	case Ready:
-		return "ready"
+		return "Ready"
 	}
-	return "unknown"
+	return "Unknown"
 }
 
 type HealthResponse struct {

@@ -13,28 +13,17 @@ import (
 )
 
 type A struct {
-	s      healthcheck.Status
-	status chan healthcheck.Status
+	defaultHC healthcheck.DefaultHealthCheck
 }
 
-func (a *A) Default() {
-	a.status = make(chan healthcheck.Status)
-}
+func (a *A) Default() {}
 
 func (a *A) Status() <-chan healthcheck.Status {
-	return a.status
+	return a.defaultHC.Status()
 }
 
 func (a *A) Start(ctx context.Context) error {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case a.status <- a.s:
-			}
-		}
-	}()
+	a.defaultHC = healthcheck.DefaultClient(ctx)
 
 	go func() {
 		for {
@@ -42,9 +31,10 @@ func (a *A) Start(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(time.Duration(i) * time.Second):
+			default:
+				//case <-time.After(time.Duration(i) * time.Second):
 			}
-			a.s = healthcheck.Status(i)
+			a.defaultHC.SetStatus(healthcheck.Status(i))
 		}
 	}()
 	return nil
