@@ -11,6 +11,7 @@ const (
 )
 
 var (
+	// ErrInvalidComponent means that the given component was neither a pointer not an interface.
 	ErrInvalidComponent = errors.New("component is neither a pointer nor an interface")
 )
 
@@ -21,6 +22,19 @@ type field struct {
 	name  string
 }
 
+// Inventory does the magic of wiring your components together.
+// Any component which has been Added to the Inventory becomes a candidate to be injected
+// in the other components hold in the Inventory.
+//
+// Currently the assignment algorithm follow this priority:
+// 1. The component name match the field tag.
+// 2. The component name and type match the field name and type (case sensitive).
+// 3. The component type match the field type.
+// 4. Component implements the field interface.
+//
+// A valid assignable field must be a public and can be either a pointer, an interface or a slice.
+// The slice is currently an exception and only works for the tag `scaffolder:"all"`, which will
+// inject an array with every components hold in the inventory.
 type Inventory struct {
 	fields     []field
 	containers []*container
@@ -29,6 +43,7 @@ type Inventory struct {
 	addErr error
 }
 
+// New build a new Inventory.
 func New() *Inventory {
 	return &Inventory{}
 }
@@ -64,6 +79,9 @@ func (i *Inventory) extractFields(container *container) []field {
 	return fields
 }
 
+// Add a component to the inventory, it will take care of calling Init with the
+// given options. You should use the WithName Option if you intend to assign
+// this component to matching structure tags.
 func (i *Inventory) Add(component Component, opts ...Option) *Inventory {
 	if i.addErr != nil {
 		return i
@@ -112,6 +130,7 @@ var conditions = []func(field field, container *container) bool{
 	},
 }
 
+// Compile will perform the linking for every components which have been added in the inventory.
 func (i *Inventory) Compile() error {
 	if i.addErr != nil {
 		return i.addErr
