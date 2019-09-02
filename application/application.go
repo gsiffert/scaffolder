@@ -1,7 +1,33 @@
+/*
+Package application define a simple application life cycle which should be
+robust enough for most of the application or be extended by your own custom
+implementation if it does not.
+
+The application will start by initializing every given components, linking them to
+each other with the Inventory.
+
+The components which implements the optional Validator interface will then be validated,
+any returned error will abort the application.
+
+If no error has been returned, the application will then move to the next phase.
+Every components which implements the option StartHook interface will be started
+in the same order than it was given in the call to WithComponents.
+Returning an error from the Start callback will abort the application.
+
+Finally, the application will run until it receives an interruption signal, or its context
+has been canceled or expired, or an error has been returned from the Start callback,
+
+Once the application initiate its interruption, the components implementing
+the StopHook interface will be asked to stop and forcefully stopped if they do not perform
+after the configured grace period.
+The components will be stopped in the reverse order than the one given in the call
+to WithComponents.
+*/
 package application
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,6 +37,7 @@ import (
 	"github.com/Vorian-Atreides/scaffolder"
 )
 
+// Application should describe your application.
 type Application struct {
 	name           string
 	version        string
@@ -20,6 +47,7 @@ type Application struct {
 	components []scaffolder.Component
 }
 
+// Default assign the default variables for the application component.
 func (a *Application) Default() {
 	a.name = os.Args[0]
 	a.version = "0.0.0"
@@ -27,11 +55,19 @@ func (a *Application) Default() {
 	a.inventory = scaffolder.New()
 }
 
+// String implements the Stringer interface.
+func (a *Application) String() string {
+	return fmt.Sprintf("%s (%s)", a.name, a.version)
+}
+
+// New build an application and customize it with the given Options.
 func New(opts ...scaffolder.Option) (*Application, error) {
 	app := &Application{}
 	return app, scaffolder.Init(app, opts...)
 }
 
+// WithGracefulPeriod set the grace period allocated for stopping a component.
+// The default value is one second.
 func WithGracefulPeriod(duration time.Duration) scaffolder.Option {
 	return func(a *Application) error {
 		a.gracefulPeriod = duration
@@ -39,6 +75,7 @@ func WithGracefulPeriod(duration time.Duration) scaffolder.Option {
 	}
 }
 
+// WithComponent is used to attach register a component in the application life cycle.
 func WithComponent(component scaffolder.Component, opts ...scaffolder.Option) scaffolder.Option {
 	return func(a *Application) error {
 		a.components = append(a.components, component)
@@ -47,6 +84,7 @@ func WithComponent(component scaffolder.Component, opts ...scaffolder.Option) sc
 	}
 }
 
+// WithVersion set the version of the application, the default value is "0.0.0".
 func WithVersion(version string) scaffolder.Option {
 	return func(a *Application) error {
 		a.version = version
@@ -54,6 +92,7 @@ func WithVersion(version string) scaffolder.Option {
 	}
 }
 
+// WithName set the application name, the default value is the binary name.
 func WithName(name string) scaffolder.Option {
 	return func(a *Application) error {
 		a.name = name
@@ -81,16 +120,11 @@ func (a *Application) stopWithTimeout(ctx context.Context, s StopHook) func() er
 	}
 }
 
-// Run will start by linking the components with the scaffolder Inventory.
+// Run the application until it receives an interruption signal, or until its context
+// has been canceled or expired, or until an error has been returned from the Start callback.
 //
-// Then every components implementing the Validator interface will be validated,
-// the application will abort if at least one error has been returned.
-//
-// Otherwise, the application will start the components implementing the StartHook interface
-// in a separated Goroutine. Returning at least one error from the Starts will stop the Application.
-//
-// Finally before the application terminate, it will notify the components implementing
-// the StopHook interface to allow them to gracefully shutdown.
+// The application would return an error if it was unable to Add a component, links the components,
+// validate the components, start the components or stop the components.
 func (a *Application) Run(ctx context.Context) (err error) {
 	if err := a.inventory.Compile(); err != nil {
 		return err
@@ -159,14 +193,18 @@ func (a *Application) Run(ctx context.Context) (err error) {
 	return nil
 }
 
+// Validator define the interface for components which should be validated.
 type Validator interface {
 	Validate() error
 }
 
+// StartHook define the interface for long running process which must run in parallel
+// with the application.
 type StartHook interface {
 	Start(context.Context) error
 }
 
+// StopHook define the interface for components which require a graceful shutdown.
 type StopHook interface {
 	Stop(context.Context) error
 }
