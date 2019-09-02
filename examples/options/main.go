@@ -58,10 +58,10 @@ func (c *Config) Options() []scaffolder.Option {
 
 func main() {
 	var form Form
-	_ = scaffolder.Options(&form)
+	_ = scaffolder.Init(&form)
 	fmt.Printf("Form: %v\n", form)
 
-	_ = scaffolder.Options(
+	_ = scaffolder.Init(
 		&form,
 		FirstName("Gaston"),
 		LastName("Siffert"),
