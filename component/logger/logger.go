@@ -1,3 +1,10 @@
+/*
+Package logger define a Logger component which can be used to wrap
+the logger in your application.
+
+It extends the printing role from traditional logger with the ability
+to stack meta-data with entry log while maintaining an immutable state.
+*/
 package logger
 
 import (
@@ -9,32 +16,46 @@ import (
 	"github.com/Vorian-Atreides/scaffolder"
 )
 
-type Meta interface {
+// MetaPrinter define the interface for logger which allows
+// you to attach meta-data over log entry.
+type MetaPrinter interface {
 	WithMeta(map[string]interface{}) Logger
 }
 
-type Log interface {
+// Printer define the inner logger to be used to write the log.
+type Printer interface {
 	Printf(format string, args ...interface{})
 }
 
-var Std = log.New(os.Stderr, "", log.LstdFlags)
+var std = log.New(os.Stderr, "", log.LstdFlags)
 
+// Logger interface exported from this package.
 type Logger interface {
-	Log
+	Printer
 
+	// Debugf write a debug level log.
 	Debugf(format string, args ...interface{})
+	// Infof write an info level log.
 	Infof(format string, args ...interface{})
+	// Warnf write a warning level log.
 	Warnf(format string, args ...interface{})
+	// Errorf write an error level log.
 	Errorf(format string, args ...interface{})
+	// With attach a new meta data field or replace an existing one.
 	With(name string, value interface{}) Logger
 }
 
+// Level define the verbosity level.
 type Level uint8
 
 const (
+	// Debug for debug log.
 	Debug Level = iota
+	// Info for info log.
 	Info
+	// Warning for warning log.
 	Warning
+	// Error for error log.
 	Error
 )
 
@@ -60,10 +81,11 @@ func (e *entry) fields() map[string]interface{} {
 
 type logger struct {
 	level Level
-	inner Log
+	inner Printer
 	meta  *entry
 }
 
+// New instantiate a new Logger and customize it with the given options.
 func New(opts ...scaffolder.Option) Logger {
 	logger := &logger{}
 	scaffolder.Init(logger, opts...)
@@ -72,9 +94,10 @@ func New(opts ...scaffolder.Option) Logger {
 
 func (l *logger) Default() {
 	l.level = Debug
-	l.inner = Std
+	l.inner = std
 }
 
+// WithLevel set the verbosity level to the new Logger.
 func WithLevel(level Level) scaffolder.Option {
 	return func(l *logger) error {
 		l.level = level
@@ -82,9 +105,13 @@ func WithLevel(level Level) scaffolder.Option {
 	}
 }
 
-func WithLog(log Log) scaffolder.Option {
+// WithPrinter set the inner Printer to be used to write the log.
+func WithPrinter(printer Printer) scaffolder.Option {
 	return func(l *logger) error {
-		l.inner = log
+		l.inner = printer
+		if logger, ok := printer.(*logger); ok {
+			l.inner = logger.inner
+		}
 		return nil
 	}
 }
@@ -113,7 +140,7 @@ func (l *logger) printf(level Level, format string, args ...interface{}) {
 		return
 	}
 
-	if m, ok := l.inner.(Meta); ok {
+	if m, ok := l.inner.(MetaPrinter); ok {
 		m.WithMeta(fields).Printf(format, args...)
 		return
 	}
